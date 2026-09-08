@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-title: "ORVIX - لوحة الإدارة",
+title: "NetLR - لوحة الإدارة",
 description: "نظام ربط محلات قطع غيار السيارات",
 };
 

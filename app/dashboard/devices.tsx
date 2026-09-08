@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-const API = "https://orvix-api-production.up.railway.app/api";
+const API = "http://localhost:8080/api";
 
 const DEVICES_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');

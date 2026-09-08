@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-const API = "https://orvix-api-production.up.railway.app/api";
+const API = "http://localhost:8080/api";
 
 const SHOPS_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
@@ -23,6 +23,7 @@ const SHOPS_STYLES = `
   .shops-table-card { background: white; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
   .shops-table-head { padding: 16px 22px; border-bottom: 1px solid #f1f5f9; font-weight: 700; font-size: 0.88rem; color: #0f172a; display: flex; align-items: center; gap: 8px; }
   .shops-table-head::before { content: ''; width: 4px; height: 18px; background: linear-gradient(135deg, #1d4ed8, #06b6d4); border-radius: 2px; }
+  .shops-table-scroll { overflow-x: auto; }
   .shops-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
   .shops-table thead tr { background: #f8fafc; }
   .shops-table th { padding: 11px 18px; text-align: right; color: #64748b; font-weight: 600; font-size: 0.75rem; font-family: 'Cairo', sans-serif; }
@@ -58,6 +59,11 @@ const SHOPS_STYLES = `
   .msg { padding: 10px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 0.82rem; font-weight: 600; }
   .msg-error   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
   .msg-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+  .btn-pairing { padding: 6px 14px; border-radius: 8px; background: #eef2ff; color: #4f46e5; border: none; cursor: pointer; font-size: 0.75rem; font-family: 'Cairo', sans-serif; font-weight: 600; }
+  .pairing-loading { text-align: center; padding: 30px 0; color: #64748b; font-size: 0.9rem; }
+  .pairing-code { font-size: 2.6rem; font-weight: 800; letter-spacing: 4px; text-align: center; color: #0f172a; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 14px; padding: 18px 10px; margin: 18px 0 10px; direction: ltr; }
+  .pairing-expiry { text-align: center; font-size: 0.85rem; color: #64748b; margin-bottom: 18px; }
+  .btn-copy { width: 100%; padding: 12px; border-radius: 12px; border: none; cursor: pointer; background: linear-gradient(135deg, #1d4ed8, #06b6d4); color: white; font-size: 0.9rem; font-weight: 700; font-family: 'Cairo', sans-serif; box-shadow: 0 4px 14px rgba(37,99,235,0.35); transition: all 0.2s; }
 `;
 
 const EMPTY_FORM = {
@@ -75,6 +81,8 @@ export default function ShopsPage() {
   const [form, setForm]           = useState<any>({ ...EMPTY_FORM });
   const [saving, setSaving]       = useState(false);
   const [msg, setMsg]             = useState<{ type: "error"|"success"; text: string } | null>(null);
+  const [pairingModal, setPairingModal] = useState<{ shop: any; loading: boolean; code?: string; expiresAt?: string; error?: string } | null>(null);
+  const [copied, setCopied]       = useState(false);
 
   const token = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
@@ -173,6 +181,42 @@ export default function ShopsPage() {
     load();
   };
 
+  const formatExpiry = (iso: string) => {
+    const d = new Date(iso);
+    let h = d.getHours();
+    const m = d.getMinutes().toString().padStart(2, "0");
+    const ampm = h >= 12 ? "م" : "ص";
+    h = h % 12; if (h === 0) h = 12;
+    return `${h}:${m} ${ampm}`;
+  };
+
+  const getPairingCode = async (s: any) => {
+    setCopied(false);
+    setPairingModal({ shop: s, loading: true });
+    try {
+      const res = await fetch(`${API}/agent/pairing-code`, {
+        method: "POST",
+        headers: { ...token(), "Content-Type": "application/json" },
+        body: JSON.stringify({ storeId: s.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPairingModal({ shop: s, loading: false, code: data.code, expiresAt: data.expiresAt });
+      } else {
+        setPairingModal({ shop: s, loading: false, error: data.message || "حدث خطأ" });
+      }
+    } catch {
+      setPairingModal({ shop: s, loading: false, error: "تعذر الاتصال بالسيرفر" });
+    }
+  };
+
+  const copyCode = () => {
+    if (!pairingModal?.code) return;
+    navigator.clipboard.writeText(pairingModal.code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
   const total    = shops.length;
   const active   = shops.filter(s => s.isActive).length;
   const inactive = shops.filter(s => !s.isActive).length;
@@ -212,6 +256,7 @@ export default function ShopsPage() {
 
         <div className="shops-table-card">
           <div className="shops-table-head">قائمة المحلات</div>
+          <div className="shops-table-scroll">
           <table className="shops-table">
             <thead>
               <tr>
@@ -244,12 +289,14 @@ export default function ShopsPage() {
                       <button className="btn-edit" onClick={() => openEdit(s)}>تعديل</button>
                       <button className={`btn-toggle ${s.isActive ? "btn-toggle-off" : ""}`} onClick={() => toggleActive(s)}>{s.isActive ? "إيقاف" : "تفعيل"}</button>
                       <button className="btn-del" onClick={() => deleteShop(s.id)}>حذف</button>
+                      <button className="btn-pairing" onClick={() => getPairingCode(s)}>كود ربط</button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         {showModal && (
@@ -264,38 +311,38 @@ export default function ShopsPage() {
                 <div className="modal-row">
                   <div className="modal-field">
                     <label>اسم المحل *</label>
-                    <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="مثال: مركز النجم"/>
+                    <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder=""/>
                   </div>
                   <div className="modal-field">
                     <label>المدينة *</label>
-                    <input value={form.city} onChange={e => setForm({...form, city: e.target.value})} placeholder="مثال: الرياض"/>
+                    <input value={form.city} onChange={e => setForm({...form, city: e.target.value})} placeholder=""/>
                   </div>
                 </div>
                 <div className="modal-row">
                   <div className="modal-field">
                     <label>الهاتف *</label>
-                    <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="0501234567"/>
+                    <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder=""/>
                   </div>
                   <div className="modal-field">
                     <label>هاتف إضافي</label>
-                    <input value={form.phone2} onChange={e => setForm({...form, phone2: e.target.value})} placeholder="0559876543"/>
+                    <input value={form.phone2} onChange={e => setForm({...form, phone2: e.target.value})} placeholder=""/>
                   </div>
                 </div>
                 <div className="modal-field">
                   <label>البريد الإلكتروني</label>
-                  <input value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="shop@email.com"/>
+                  <input value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder=""/>
                 </div>
                 <div className="modal-field">
                   <label>العنوان</label>
-                  <input value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="حي النزهة، شارع الملك فهد"/>
+                  <input value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder=""/>
                 </div>
                 <div className="modal-field">
                   <label>الموقع (رابط)</label>
-                  <input value={form.location} onChange={e => setForm({...form, location: e.target.value})} placeholder="https://maps.google.com/..."/>
+                  <input value={form.location} onChange={e => setForm({...form, location: e.target.value})} placeholder=""/>
                 </div>
                 <div className="modal-field">
                   <label>الحد الأقصى للأجهزة</label>
-                  <input type="number" min="1" value={form.maxDevices} onChange={e => setForm({...form, maxDevices: parseInt(e.target.value) || 1})} placeholder="1"/>
+                  <input type="number" min="1" value={form.maxDevices} onChange={e => setForm({...form, maxDevices: parseInt(e.target.value) || 1})} placeholder=""/>
                 </div>
               </div>
 
@@ -316,6 +363,32 @@ export default function ShopsPage() {
                   {saving ? "جاري الحفظ..." : editShop ? "حفظ التعديلات" : "إضافة المحل"}
                 </button>
                 <button className="btn-cancel" onClick={() => setShowModal(false)}>إلغاء</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {pairingModal && (
+          <div className="modal-overlay" onClick={() => setPairingModal(null)}>
+            <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
+              <div className="modal-title">🔗 كود ربط — {pairingModal.shop.name}</div>
+
+              {pairingModal.loading && <div className="pairing-loading">جاري إنشاء الكود...</div>}
+
+              {pairingModal.error && (
+                <div className="msg msg-error">{pairingModal.error}</div>
+              )}
+
+              {pairingModal.code && (
+                <>
+                  <div className="pairing-code">{pairingModal.code}</div>
+                  <div className="pairing-expiry">صالح حتى {formatExpiry(pairingModal.expiresAt!)}</div>
+                  <button className="btn-copy" onClick={copyCode}>{copied ? "✓ تم النسخ" : "📋 نسخ الكود"}</button>
+                </>
+              )}
+
+              <div className="modal-actions" style={{ marginTop: 14 }}>
+                <button className="btn-cancel" style={{ width: "100%" }} onClick={() => setPairingModal(null)}>إغلاق</button>
               </div>
             </div>
           </div>

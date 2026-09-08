@@ -19,7 +19,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch('https://orvix-api-production.up.railway.app/api/auth/login', {
+      const res = await fetch('http://localhost:8080/api/auth/login', {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ username, password }),
@@ -247,9 +247,9 @@ export default function LoginPage() {
         {/* Left Side */}
         <div className="left-side">
           <div className="brand">
-            <div className="brand-logo">OR</div>
+            <div className="brand-logo">NL</div>
             <div>
-              <div className="brand-name">ORVIX</div>
+              <div className="brand-name">NetLR</div>
               <div className="brand-sub">نظام إدارة قطع الغيار</div>
             </div>
           </div>
@@ -391,7 +391,7 @@ export default function LoginPage() {
             </button>
 
             <div className="card-footer">
-              <p>© 2024 ORVIX. جميع الحقوق محفوظة.</p>
+              <p>© 2024 NetLR. جميع الحقوق محفوظة.</p>
             </div>
           </div>
         </div>

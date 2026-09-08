@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-const API = "https://orvix-api-production.up.railway.app/api";
+const API = "http://localhost:8080/api";
 
 export default function UsersPage() {
   const [users, setUsers]         = useState<any[]>([]);

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-const API = "https://orvix-api-production.up.railway.app/api";
+const API = "http://localhost:8080/api";
 
 export default function PartsPage() {
   const [parts, setParts]       = useState<any[]>([]);
@@ -15,13 +15,13 @@ export default function PartsPage() {
   const load = async () => {
     try {
       const [partsRes, storesRes] = await Promise.all([
-        fetch(`${API}/parts`, { headers: token() }),
+        fetch(`${API}/parts?pageSize=500`, { headers: token() }),
         fetch(`${API}/stores`, { headers: token() }),
       ]);
       const partsData  = await partsRes.json();
       const storesData = await storesRes.json();
-      setParts(partsData);
-      setFiltered(partsData);
+      setParts(partsData.data ?? []);
+      setFiltered(partsData.data ?? []);
       setStores(storesData);
     } catch {}
     setLoading(false);
