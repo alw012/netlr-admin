@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-const API = "http://localhost:8080/api";
+const API = process.env.NEXT_PUBLIC_API_URL + "/api";
 
 export default function UsersPage() {
   const [users, setUsers]         = useState<any[]>([]);

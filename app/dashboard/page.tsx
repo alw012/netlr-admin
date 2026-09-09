@@ -6,7 +6,7 @@ import PartsPage from "./parts";
 import DevicesPage from "./devices";
 import MatchingGroupsPage from "./matching-groups";
 
-const API = "http://localhost:8080/api";
+const API = process.env.NEXT_PUBLIC_API_URL + "/api";
 
 const NETLR_STYLES = `
   * { margin: 0; padding: 0; box-sizing: border-box; }
