@@ -2,41 +2,51 @@
 import { useEffect, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL + "/api";
+const PAGE_SIZE = 100;
 
 export default function PartsPage() {
-  const [parts, setParts]       = useState<any[]>([]);
-  const [stores, setStores]     = useState<any[]>([]);
-  const [filtered, setFiltered] = useState<any[]>([]);
-  const [search, setSearch]     = useState("");
-  const [loading, setLoading]   = useState(true);
+  const [parts, setParts]     = useState<any[]>([]);
+  const [stores, setStores]   = useState<any[]>([]);
+  const [search, setSearch]   = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage]       = useState(1);
+  const [total, setTotal]     = useState(0);
+  const [loading, setLoading] = useState(true);
 
   const token = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
-  const load = async () => {
+  const loadStores = async () => {
     try {
-      const [partsRes, storesRes] = await Promise.all([
-        fetch(`${API}/parts?pageSize=500`, { headers: token() }),
-        fetch(`${API}/stores`, { headers: token() }),
-      ]);
-      const partsData  = await partsRes.json();
-      const storesData = await storesRes.json();
+      const storesRes = await fetch(`${API}/stores`, { headers: token() });
+      setStores(await storesRes.json());
+    } catch {}
+  };
+
+  const loadParts = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+      if (debouncedSearch) params.set("search", debouncedSearch);
+
+      const partsRes = await fetch(`${API}/parts?${params.toString()}`, { headers: token() });
+      const partsData = await partsRes.json();
       setParts(partsData.data ?? []);
-      setFiltered(partsData.data ?? []);
-      setStores(storesData);
+      setTotal(partsData.total ?? 0);
     } catch {}
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadStores(); }, []);
+  useEffect(() => { loadParts(); }, [page, debouncedSearch]);
 
+  // debounce: بعد توقف الكتابة، نطبّق البحث ونرجع لأول صفحة تلقائياً.
   useEffect(() => {
-    const q = search.toLowerCase();
-    setFiltered(parts.filter(p =>
-      p.partNumber?.toLowerCase().includes(q) ||
-      p.type?.toLowerCase().includes(q) ||
-      getStoreName(p.storeId)?.toLowerCase().includes(q)
-    ));
-  }, [search, parts]);
+    const t = setTimeout(() => {
+      setPage(1);
+      setDebouncedSearch(search.trim());
+    }, 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const getStore        = (storeId: number) => stores.find(s => s.id == storeId);
   const getStoreName    = (storeId: number) => getStore(storeId)?.name    || "—";
@@ -53,9 +63,13 @@ export default function PartsPage() {
     } catch { return "—"; }
   };
 
-  const totalParts      = parts.length;
+  const totalParts      = total;
   const totalOriginal   = parts.filter(p => p.type === "أصلي").length;
   const totalCommercial = parts.filter(p => p.type === "تجاري").length;
+
+  const totalPages  = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const rangeStart  = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd    = Math.min(page * PAGE_SIZE, total);
 
   return (
     <>
@@ -87,13 +101,17 @@ export default function PartsPage() {
         .empty-state { text-align: center; padding: 40px; color: #94a3b8; }
         .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
         .last-sync { font-size: 0.78rem; color: #94a3b8; }
+        .parts-pagination { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 16px 20px; border-top: 1px solid #f1f5f9; }
+        .parts-pagination button { font-family: 'Cairo', sans-serif; font-size: 0.85rem; font-weight: 700; padding: 8px 18px; border-radius: 10px; border: 1px solid #e2e8f0; background: #f8fafc; color: #0f172a; cursor: pointer; }
+        .parts-pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .parts-pagination span { font-size: 0.82rem; color: #64748b; }
       `}</style>
 
       <div className="parts-wrap">
         <div className="parts-header">
           <div>
             <div className="parts-title">🔧 إدارة القطع</div>
-            <div className="parts-sub">إجمالي القطع: {parts.length} — البيانات تُجمع تلقائياً من المحلات</div>
+            <div className="parts-sub">إجمالي القطع: {total} — البيانات تُجمع تلقائياً من المحلات</div>
           </div>
           <div className="readonly-badge">🔒 عرض فقط</div>
         </div>
@@ -126,7 +144,7 @@ export default function PartsPage() {
         <div className="parts-table-card">
           <div className="parts-table-head">
             <span>قائمة القطع</span>
-            <span className="last-sync">عرض {filtered.length} من {parts.length}</span>
+            <span className="last-sync">عرض {rangeStart}-{rangeEnd} من {total}</span>
           </div>
           <div className="parts-table-wrap">
             <table className="parts-table">
@@ -148,14 +166,14 @@ export default function PartsPage() {
                   <tr><td colSpan={9}>
                     <div className="empty-state">جاري التحميل...</div>
                   </td></tr>
-                ) : filtered.length === 0 ? (
+                ) : parts.length === 0 ? (
                   <tr><td colSpan={9}>
                     <div className="empty-state">
                       <div className="empty-icon">🔧</div>
                       <div>لا توجد قطع</div>
                     </div>
                   </td></tr>
-                ) : filtered.map((p: any) => (
+                ) : parts.map((p: any) => (
                   <tr key={p.id}>
                     <td><span className="part-number">{p.partNumber}</span></td>
                     <td>
@@ -178,6 +196,11 @@ export default function PartsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="parts-pagination">
+            <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>السابق</button>
+            <span>صفحة {page} من {totalPages}</span>
+            <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>التالي</button>
           </div>
         </div>
       </div>
