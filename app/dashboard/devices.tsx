@@ -11,33 +11,32 @@ function formatDeviceName(name?: string | null) {
 }
 
 const DEVICES_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
-  .devices-wrap { font-family: 'Cairo', sans-serif; direction: rtl; }
-  .devices-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
-  .devices-title { font-size: 1.4rem; font-weight: 800; color: #0f172a; }
-  .devices-sub { font-size: 0.8rem; color: #94a3b8; margin-top: 2px; }
-  .search-bar { background: white; border-radius: 14px; padding: 14px 18px; margin-bottom: 18px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-  .search-bar select { flex: 1; border: none; outline: none; font-size: 0.88rem; font-family: 'Cairo', sans-serif; color: #334155; background: transparent; direction: rtl; }
-  .devices-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 24px; }
-  .devices-stat { background: white; border-radius: 14px; padding: 18px 20px; display: flex; align-items: center; gap: 14px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-  .devices-stat-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
-  .devices-stat-num { font-size: 1.4rem; font-weight: 800; color: #0f172a; }
-  .devices-stat-lbl { font-size: 0.75rem; color: #64748b; }
-  .devices-table-card { background: white; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-  .devices-table-head { padding: 16px 22px; border-bottom: 1px solid #f1f5f9; font-weight: 700; font-size: 0.88rem; color: #0f172a; display: flex; align-items: center; gap: 8px; }
-  .devices-table-head::before { content: ''; width: 4px; height: 18px; background: linear-gradient(135deg, #7c3aed, #8b5cf6); border-radius: 2px; }
+  .devices-wrap { direction: rtl; }
+  .devices-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
+  .devices-title { font-size: 1.28rem; font-weight: 800; color: var(--nl-text); }
+  .devices-sub { font-size: 0.82rem; color: var(--nl-muted); margin-top: 3px; }
+  .search-bar { background: var(--nl-card); border-radius: 14px; padding: 13px 16px; margin-bottom: 16px; border: 1px solid var(--nl-line); display: flex; align-items: center; gap: 10px; box-shadow: var(--nl-shadow); }
+  .search-bar select { flex: 1; border: none; outline: none; font-size: 0.88rem; font-family: inherit; color: var(--nl-text); background: transparent; direction: rtl; }
+  .devices-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 20px; }
+  .devices-stat { background: var(--nl-card); border-radius: 16px; padding: 18px 20px; display: flex; align-items: center; gap: 14px; border: 1px solid var(--nl-line); box-shadow: var(--nl-shadow); }
+  .devices-stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+  .devices-stat-num { font-size: 1.4rem; font-weight: 800; color: var(--nl-text); }
+  .devices-stat-lbl { font-size: 0.75rem; color: var(--nl-muted); }
+  .devices-table-card { background: var(--nl-card); border-radius: 18px; overflow: hidden; border: 1px solid var(--nl-line); box-shadow: var(--nl-shadow); }
+  .devices-table-head { padding: 16px 22px; border-bottom: 1px solid var(--nl-line); font-weight: 800; font-size: 0.92rem; color: var(--nl-text); display: flex; align-items: center; gap: 8px; }
+  .devices-table-head::before { content: ''; width: 8px; height: 8px; background: var(--nl-brass); border-radius: 50%; }
   .devices-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
-  .devices-table thead tr { background: #f8fafc; }
-  .devices-table th { padding: 11px 18px; text-align: right; color: #64748b; font-weight: 600; font-size: 0.75rem; font-family: 'Cairo', sans-serif; }
-  .devices-table td { padding: 13px 18px; color: #334155; border-bottom: 1px solid #f8fafc; font-family: 'Cairo', sans-serif; }
-  .devices-table tbody tr:hover { background: #f8fafc; }
+  .devices-table thead tr { background: #faf6f0; }
+  .devices-table th { padding: 11px 18px; text-align: right; color: var(--nl-muted); font-weight: 700; font-size: 0.74rem; }
+  .devices-table td { padding: 13px 18px; color: #44403c; border-bottom: 1px solid #f3eee6; }
+  .devices-table tbody tr:hover { background: #fbf7f1; }
   .devices-table tbody tr:last-child td { border-bottom: none; }
-  .badge-online  { background: #d1fae5; color: #059669; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 600; }
-  .badge-offline { background: #fee2e2; color: #dc2626; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 600; }
-  .device-id { font-family: monospace; font-size: 0.85rem; font-weight: 700; color: #7c3aed; background: #f5f3ff; padding: 3px 8px; border-radius: 6px; }
-  .empty-state { text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 0.88rem; }
+  .badge-online  { background: var(--nl-ok-bg); color: var(--nl-ok); padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+  .badge-offline { background: var(--nl-bad-bg); color: var(--nl-bad); padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+  .device-id { font-family: ui-monospace, monospace; font-size: 0.85rem; font-weight: 700; color: #7c3aed; background: #f5f3ff; padding: 3px 8px; border-radius: 6px; }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--nl-muted); font-size: 0.88rem; }
   .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
-  .btn-del { padding: 6px 14px; border-radius: 8px; background: #fef2f2; color: #dc2626; border: none; cursor: pointer; font-size: 0.75rem; font-family: 'Cairo', sans-serif; font-weight: 600; }
+  .btn-del { padding: 6px 14px; border-radius: 8px; background: var(--nl-bad-bg); color: var(--nl-bad); border: none; cursor: pointer; font-size: 0.75rem; font-family: inherit; font-weight: 700; }
 `;
 
 export default function DevicesPage() {
