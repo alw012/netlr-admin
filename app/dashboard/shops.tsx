@@ -3,6 +3,13 @@ import { useEffect, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL + "/api";
 
+function formatDeviceName(name?: string | null) {
+  const n = (name ?? "").trim();
+  if (!n) return "—";
+  if (n.toUpperCase().startsWith("PC ")) return "PC" + n.slice(3).trim();
+  return n;
+}
+
 const SHOPS_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
   .shops-wrap { font-family: 'Cairo', sans-serif; direction: rtl; }
@@ -478,7 +485,7 @@ export default function ShopsPage() {
                     {devicesModal.devices.map((d: any) => (
                       <tr key={d.id}>
                         <td><span className="device-id" style={{ fontFamily: "monospace", fontWeight: 700 }}>{d.deviceId}</span></td>
-                        <td style={{ direction: "ltr", textAlign: "left", fontFamily: "monospace", fontWeight: 700 }}>{d.name || "—"}</td>
+                        <td style={{ direction: "ltr", textAlign: "left", fontFamily: "monospace", fontWeight: 700 }}>{formatDeviceName(d.name)}</td>
                         <td>{d.isOnline ? "متصل" : "غير متصل"}</td>
                         <td>{d.lastSeen ? new Date(d.lastSeen).toLocaleString("ar") : "—"}</td>
                         <td><button className="btn-del" onClick={() => deleteShopDevice(d.id)}>حذف</button></td>

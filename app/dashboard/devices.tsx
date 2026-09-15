@@ -3,6 +3,13 @@ import { useEffect, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL + "/api";
 
+function formatDeviceName(name?: string | null) {
+  const n = (name ?? "").trim();
+  if (!n) return "—";
+  if (n.toUpperCase().startsWith("PC ")) return "PC" + n.slice(3).trim();
+  return n;
+}
+
 const DEVICES_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
   .devices-wrap { font-family: 'Cairo', sans-serif; direction: rtl; }
@@ -137,7 +144,7 @@ export default function DevicesPage() {
                 <tr key={d.id}>
                   <td>{i + 1}</td>
                   <td><span className="device-id">{d.deviceId}</span></td>
-                  <td style={{ direction: "ltr", textAlign: "left", fontFamily: "monospace", fontWeight: 700 }}>{d.name || "—"}</td>
+                  <td style={{ direction: "ltr", textAlign: "left", fontFamily: "monospace", fontWeight: 700 }}>{formatDeviceName(d.name)}</td>
                   <td>{d.storeName}</td>
                   <td><span className={d.isOnline ? "badge-online" : "badge-offline"}>{d.isOnline ? "متصل" : "غير متصل"}</span></td>
                   <td>{new Date(d.createdAt).toLocaleDateString("ar")}</td>
