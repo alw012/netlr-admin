@@ -23,6 +23,8 @@ const NETLR_STYLES = `
   .netlr-nav-item.active { background: linear-gradient(135deg, #3b82f6, #6366f1); color: #fff; box-shadow: 0 4px 12px rgba(59,130,246,0.35); }
   .netlr-nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
   .netlr-sidebar-footer { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; margin-top: 8px; }
+  .netlr-today { direction: ltr; text-align: center; color: #94a3b8; font-size: 0.78rem; font-weight: 600; margin-bottom: 10px; letter-spacing: 0.3px; }
+  .netlr-page-footer { text-align: center; padding: 14px 16px 18px; color: #64748b; font-size: 0.85rem; font-weight: 600; direction: ltr; }
   .netlr-logout { display: flex; align-items: center; gap: 10px; padding: 10px 13px; border-radius: 10px; color: #fca5a5; cursor: pointer; font-size: 0.9rem; font-weight: 600; border: none; background: transparent; text-align: right; width: 100%; transition: all 0.15s ease; }
   .netlr-logout:hover { background: rgba(239,68,68,0.1); color: #fecaca; }
   .netlr-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
@@ -65,12 +67,21 @@ const pageTitle: Record<string, string> = {
   matching:  "مطابقة الأرقام",
 };
 
+function formatToday() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `Today ${y}/${m}/${day}`;
+}
+
 export default function AdminPage() {
   const [page, setPage] = useState("dashboard");
+  const [today, setToday] = useState(formatToday);
   const [shops, setShops] = useState<any[]>([]);
   const [stats, setStats] = useState({
     totalShops: 0, totalDevices: 0, onlineDevices: 0, offlineDevices: 0,
-    totalParts: 0,
+    totalParts: 0, inStockParts: 0, outOfStockParts: 0, searchableParts: 0,
   });
 
   const token = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
@@ -81,6 +92,11 @@ export default function AdminPage() {
         fetch(`${API}/stats`, { headers: token() }),
         fetch(`${API}/stores`, { headers: token() }),
       ]);
+      if (statsRes.status === 401 || shopsRes.status === 401) {
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+        return;
+      }
       const statsData = await statsRes.json();
       const shopsData = await shopsRes.json();
       setStats(statsData);
@@ -88,7 +104,17 @@ export default function AdminPage() {
     } catch {}
   };
 
-  useEffect(() => { if (page === "dashboard") loadDashboard(); }, [page]);
+  useEffect(() => {
+    if (typeof window !== "undefined" && !localStorage.getItem("token")) {
+      window.location.href = "/login";
+      return;
+    }
+    if (page === "dashboard") loadDashboard();
+  }, [page]);
+  useEffect(() => {
+    const id = setInterval(() => setToday(formatToday()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   function logout() {
     localStorage.removeItem("token");
@@ -101,6 +127,8 @@ export default function AdminPage() {
     { label: "الأجهزة المتصلة",     value: stats.onlineDevices,  icon: "🟢", bg: "#f0fdf4", color: "#22c55e" },
     { label: "الأجهزة غير المتصلة", value: stats.offlineDevices, icon: "🔴", bg: "#fef2f2", color: "#ef4444" },
     { label: "إجمالي القطع",        value: stats.totalParts,     icon: "🔩", bg: "#fff7ed", color: "#f97316" },
+    { label: "قطع متوفرة",          value: stats.inStockParts,   icon: "📦", bg: "#ecfeff", color: "#0891b2" },
+    { label: "قابلة للبحث بالتطبيق", value: stats.searchableParts, icon: "🔎", bg: "#f0fdf4", color: "#16a34a" },
   ];
 
   return (
@@ -124,6 +152,7 @@ export default function AdminPage() {
             ))}
           </nav>
           <div className="netlr-sidebar-footer">
+            <div className="netlr-today">{today}</div>
             <button className="netlr-logout" onClick={logout}>
               <span>🚪</span> تسجيل الخروج
             </button>
@@ -185,6 +214,7 @@ export default function AdminPage() {
             {page === "parts"    && <PartsPage />}
             {page === "matching" && <MatchingGroupsPage />}
           </div>
+          <div className="netlr-page-footer">{today}</div>
         </main>
       </div>
     </>

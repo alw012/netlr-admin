@@ -11,6 +11,9 @@ export default function PartsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage]       = useState(1);
   const [total, setTotal]     = useState(0);
+  const [originalCount, setOriginalCount] = useState(0);
+  const [commercialCount, setCommercialCount] = useState(0);
+  const [audit, setAudit]     = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const token = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
@@ -32,11 +35,20 @@ export default function PartsPage() {
       const partsData = await partsRes.json();
       setParts(partsData.data ?? []);
       setTotal(partsData.total ?? 0);
+      setOriginalCount(partsData.originalCount ?? 0);
+      setCommercialCount(partsData.commercialCount ?? 0);
     } catch {}
     setLoading(false);
   };
 
-  useEffect(() => { loadStores(); }, []);
+  const loadAudit = async () => {
+    try {
+      const res = await fetch(`${API}/parts/audit`, { headers: token() });
+      if (res.ok) setAudit(await res.json());
+    } catch {}
+  };
+
+  useEffect(() => { loadStores(); loadAudit(); }, []);
   useEffect(() => { loadParts(); }, [page, debouncedSearch]);
 
   // debounce: بعد توقف الكتابة، نطبّق البحث ونرجع لأول صفحة تلقائياً.
@@ -64,8 +76,8 @@ export default function PartsPage() {
   };
 
   const totalParts      = total;
-  const totalOriginal   = parts.filter(p => p.type === "أصلي").length;
-  const totalCommercial = parts.filter(p => p.type === "تجاري").length;
+  const totalOriginal   = originalCount;
+  const totalCommercial = commercialCount;
 
   const totalPages  = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const rangeStart  = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -111,7 +123,7 @@ export default function PartsPage() {
         <div className="parts-header">
           <div>
             <div className="parts-title">🔧 إدارة القطع</div>
-            <div className="parts-sub">إجمالي القطع: {total} — البيانات تُجمع تلقائياً من المحلات</div>
+            <div className="parts-sub">إجمالي القطع: {total} — البيانات تُجمع تلقائياً من المحلات. الأرقام أدناه من السيرفر وليست من الصفحة الحالية.</div>
           </div>
           <div className="readonly-badge">🔒 عرض فقط</div>
         </div>
@@ -131,6 +143,27 @@ export default function PartsPage() {
             </div>
           ))}
         </div>
+
+        {audit && (
+          <div className="parts-stats" style={{ marginBottom: 16 }}>
+            {[
+              { label: "متوفرة (كمية > 0)", value: audit.inStock ?? 0, icon: "📦" },
+              { label: "نافدة (كمية 0)", value: audit.outOfStock ?? 0, icon: "📭" },
+              { label: "قابلة للبحث في التطبيق", value: audit.searchableInStoreApp ?? 0, icon: "🔎" },
+              { label: "مكررة بنفس المحل", value: audit.duplicateExtraRows ?? 0, icon: "📑" },
+              { label: "غير مرتبطة بمحل", value: audit.orphanRecords ?? 0, icon: "⚠" },
+              { label: "على محلات متوقفة", value: audit.onInactiveStores ?? 0, icon: "⏸" },
+            ].map(s => (
+              <div className="parts-stat" key={s.label}>
+                <div className="parts-stat-icon" style={{ background: "#f8fafc" }}>{s.icon}</div>
+                <div>
+                  <div className="parts-stat-num">{s.value}</div>
+                  <div className="parts-stat-lbl">{s.label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="search-bar">
           <span style={{ color: "#94a3b8" }}>🔍</span>

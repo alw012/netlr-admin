@@ -69,7 +69,7 @@ export default function DevicesPage() {
   };
 
   const deleteDevice = async (id: number) => {
-    if (!confirm("هل أنت متأكد من حذف هذا الجهاز؟")) return;
+    if (!confirm("تعطيل هذا الجهاز يمنعه فوراً من استخدام الـ API ويحرّر خانة تفعيل. حذف مرة ثانية يزيله نهائياً. متابعة؟")) return;
     await fetch(`${API}/devices/${id}`, { method: "DELETE", headers: token() });
     loadDevices(storeId || undefined);
   };
@@ -122,7 +122,7 @@ export default function DevicesPage() {
               <tr>
                 <th>#</th>
                 <th>Device ID</th>
-                <th>اسم الجهاز</th>
+                <th>User Name</th>
                 <th>المحل</th>
                 <th>الحالة</th>
                 <th>تاريخ التسجيل</th>
@@ -137,7 +137,7 @@ export default function DevicesPage() {
                 <tr key={d.id}>
                   <td>{i + 1}</td>
                   <td><span className="device-id">{d.deviceId}</span></td>
-                  <td><strong>{d.name || "—"}</strong></td>
+                  <td style={{ direction: "ltr", textAlign: "left", fontFamily: "monospace", fontWeight: 700 }}>{d.name || "—"}</td>
                   <td>{d.storeName}</td>
                   <td><span className={d.isOnline ? "badge-online" : "badge-offline"}>{d.isOnline ? "متصل" : "غير متصل"}</span></td>
                   <td>{new Date(d.createdAt).toLocaleDateString("ar")}</td>

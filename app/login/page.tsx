@@ -26,6 +26,10 @@ export default function LoginPage() {
 });
       if (res.ok) {
         const data = await res.json();
+        if (data.user?.role !== "Admin") {
+          setError("هذا الحساب ليس حساب إدارة");
+          return;
+        }
         localStorage.setItem("token", data.token);
         router.push("/dashboard");
       } else {

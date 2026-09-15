@@ -83,7 +83,7 @@ const REASON_LABELS: Record<string, string> = {
 
 function parseNumbers(text: string): string[] {
   return text
-    .split(/[\n,]+/)
+    .split(/[\r\n,;،]+/)
     .map(s => s.trim())
     .filter(Boolean);
 }

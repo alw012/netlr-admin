@@ -56,13 +56,34 @@ export default function UsersPage() {
       setMsg({ type: "error", text: "يرجى إدخال اسم المستخدم *" });
       return;
     }
+    const username = form.username.trim();
+    if (username.length < 3) {
+      setMsg({ type: "error", text: "اسم المستخدم يجب ألا يقل عن 3 أحرف" });
+      return;
+    }
+    if (username.includes(" ")) {
+      setMsg({ type: "error", text: "اسم المستخدم لا يمكن أن يحتوي على مسافات" });
+      return;
+    }
+    const taken = users.some(u =>
+      u.username?.toLowerCase() === username.toLowerCase() &&
+      (!editUser || u.id !== editUser.id)
+    );
+    if (taken) {
+      setMsg({ type: "error", text: "اسم المستخدم موجود مسبقاً. اختر اسماً آخر." });
+      return;
+    }
+    if (!editUser && !form.password) {
+      setMsg({ type: "error", text: "يرجى إدخال كلمة المرور *" });
+      return;
+    }
     setSaving(true);
     try {
       const method = editUser ? "PUT" : "POST";
       const url    = editUser ? `${API}/users/${editUser.id}` : `${API}/users`;
       const body   = editUser
-        ? { username: form.username, fullName: form.fullName, role: form.role, isActive: true }
-        : { username: form.username, password: form.password, fullName: form.fullName || form.username, role: form.role };
+        ? { username, fullName: form.fullName, role: form.role, isActive: true }
+        : { username, password: form.password, fullName: form.fullName || username, role: form.role };
 
       const res = await fetch(url, {
         method,

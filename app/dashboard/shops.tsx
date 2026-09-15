@@ -69,8 +69,16 @@ const SHOPS_STYLES = `
 const EMPTY_FORM = {
   name: "", city: "", phone: "", phone2: "",
   address: "", email: "", location: "",
-  username: "", password: "", maxDevices: 1
+  maxDevices: 5, shopCode: ""
 };
+
+function silentShopCredentials() {
+  const n = Math.floor(Math.random() * 1e9).toString().padStart(9, "0");
+  const chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let password = "";
+  for (let i = 0; i < 16; i++) password += chars[Math.floor(Math.random() * chars.length)];
+  return { username: `shop${n}`, password };
+}
 
 export default function ShopsPage() {
   const [shops, setShops]         = useState<any[]>([]);
@@ -81,8 +89,10 @@ export default function ShopsPage() {
   const [form, setForm]           = useState<any>({ ...EMPTY_FORM });
   const [saving, setSaving]       = useState(false);
   const [msg, setMsg]             = useState<{ type: "error"|"success"; text: string } | null>(null);
-  const [pairingModal, setPairingModal] = useState<{ shop: any; loading: boolean; code?: string; expiresAt?: string; error?: string } | null>(null);
+  const [pairingModal, setPairingModal] = useState<{ shop: any; loading: boolean; code?: string; expiresAt?: string; error?: string; used?: number; max?: number } | null>(null);
   const [copied, setCopied]       = useState(false);
+  const [justCreated, setJustCreated] = useState(false);
+  const [devicesModal, setDevicesModal] = useState<{ shop: any; devices: any[]; loading: boolean } | null>(null);
 
   const token = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
@@ -98,12 +108,13 @@ export default function ShopsPage() {
   useEffect(() => {
     const q = search.toLowerCase();
     setFiltered(shops.filter(s =>
-      s.name?.toLowerCase().includes(q) || s.city?.toLowerCase().includes(q)
+      s.name?.toLowerCase().includes(q) || s.city?.toLowerCase().includes(q) || s.shopCode?.toLowerCase().includes(q)
     ));
   }, [search, shops]);
 
   const openAdd = () => {
     setEditShop(null);
+    setJustCreated(false);
     setForm({ ...EMPTY_FORM });
     setMsg(null);
     setShowModal(true);
@@ -111,6 +122,7 @@ export default function ShopsPage() {
 
   const openEdit = async (s: any) => {
     setEditShop(s);
+    setJustCreated(false);
     try {
       const res = await fetch(`${API}/stores/${s.id}`, { headers: token() });
       const data = await res.json();
@@ -122,16 +134,15 @@ export default function ShopsPage() {
         address: data.address || "",
         email: data.email || "",
         location: data.location || "",
-        username: data.username || "",
-        password: "",
-        maxDevices: data.maxDevices || 1,
+        maxDevices: data.maxDevices || 10,
+        shopCode: data.shopCode || "",
       });
     } catch {
       setForm({
         name: s.name || "", city: s.city || "", phone: s.phone || "",
         phone2: s.phone2 || "", address: s.address || "",
         email: s.email || "", location: s.location || "",
-        username: "", password: "", maxDevices: s.maxDevices || 1,
+        maxDevices: s.maxDevices || 10, shopCode: s.shopCode || "",
       });
     }
     setMsg(null);
@@ -143,26 +154,45 @@ export default function ShopsPage() {
       setMsg({ type: "error", text: "يرجى تعبئة الحقول المطلوبة *" });
       return;
     }
-    if (!editShop && (!form.username || !form.password)) {
-      setMsg({ type: "error", text: "يرجى إدخال اسم المستخدم وكلمة المرور" });
+    if (!form.maxDevices || form.maxDevices < 1) {
+      setMsg({ type: "error", text: "حدد عدد الأجهزة المسموح بها لهذا المحل" });
       return;
     }
     setSaving(true);
     try {
       const method = editShop ? "PUT" : "POST";
       const url    = editShop ? `${API}/stores/${editShop.id}` : `${API}/stores`;
+      const creds = editShop ? {} : silentShopCredentials();
+      const payload = {
+        name: form.name.trim(),
+        city: form.city.trim(),
+        phone: form.phone.trim(),
+        phone2: form.phone2?.trim() || null,
+        email: form.email?.trim() || null,
+        address: form.address?.trim() || null,
+        location: form.location?.trim() || null,
+        maxDevices: form.maxDevices,
+        ...creds,
+      };
       const res    = await fetch(url, {
         method,
         headers: { ...token(), "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setMsg({ type: "success", text: editShop ? "تم تعديل المحل بنجاح ✓" : "تم إضافة المحل بنجاح ✓" });
+        const code = data.shopCode || form.shopCode;
+        if (!editShop) {
+          setForm({ ...form, shopCode: code || "" });
+          setJustCreated(true);
+          setMsg({ type: "success", text: `تم إضافة المحل ✓  كود التفعيل: ${code || ""} — مربوط بهذا المحل فقط، حتى ${form.maxDevices} أجهزة` });
+        } else {
+          setMsg({ type: "success", text: "تم تعديل المحل بنجاح ✓" });
+          setTimeout(() => setShowModal(false), 800);
+        }
         load();
-        setTimeout(() => setShowModal(false), 800);
       } else {
-        const err = await res.json();
-        setMsg({ type: "error", text: err.message || "حدث خطأ" });
+        setMsg({ type: "error", text: data.message || "حدث خطأ" });
       }
     } catch {
       setMsg({ type: "error", text: "تعذر الاتصال بالسيرفر" });
@@ -181,40 +211,41 @@ export default function ShopsPage() {
     load();
   };
 
-  const formatExpiry = (iso: string) => {
-    const d = new Date(iso);
-    let h = d.getHours();
-    const m = d.getMinutes().toString().padStart(2, "0");
-    const ampm = h >= 12 ? "م" : "ص";
-    h = h % 12; if (h === 0) h = 12;
-    return `${h}:${m} ${ampm}`;
-  };
-
-  const getPairingCode = async (s: any) => {
+  const showActivationCode = async (s: any) => {
     setCopied(false);
-    setPairingModal({ shop: s, loading: true });
-    try {
-      const res = await fetch(`${API}/agent/pairing-code`, {
-        method: "POST",
-        headers: { ...token(), "Content-Type": "application/json" },
-        body: JSON.stringify({ storeId: s.id }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setPairingModal({ shop: s, loading: false, code: data.code, expiresAt: data.expiresAt });
-      } else {
-        setPairingModal({ shop: s, loading: false, error: data.message || "حدث خطأ" });
-      }
-    } catch {
-      setPairingModal({ shop: s, loading: false, error: "تعذر الاتصال بالسيرفر" });
-    }
+    setPairingModal({
+      shop: s,
+      loading: false,
+      code: s.shopCode,
+      used: s.deviceCount || 0,
+      max: s.maxDevices,
+    });
   };
 
   const copyCode = () => {
-    if (!pairingModal?.code) return;
-    navigator.clipboard.writeText(pairingModal.code);
+    const code = pairingModal?.code || form.shopCode;
+    if (!code) return;
+    navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const openShopDevices = async (s: any) => {
+    setDevicesModal({ shop: s, devices: [], loading: true });
+    try {
+      const res = await fetch(`${API}/devices?storeId=${s.id}`, { headers: token() });
+      const data = await res.json();
+      setDevicesModal({ shop: s, devices: Array.isArray(data) ? data : [], loading: false });
+    } catch {
+      setDevicesModal({ shop: s, devices: [], loading: false });
+    }
+  };
+
+  const deleteShopDevice = async (id: number) => {
+    if (!confirm("حذف هذا الجهاز يحرّر خانة تفعيل جديدة لهذا المحل. متابعة؟")) return;
+    await fetch(`${API}/devices/${id}`, { method: "DELETE", headers: token() });
+    if (devicesModal?.shop) await openShopDevices(devicesModal.shop);
+    load();
   };
 
   const total    = shops.length;
@@ -262,11 +293,11 @@ export default function ShopsPage() {
               <tr>
                 <th>#</th>
                 <th>اسم المحل</th>
+                <th>كود التفعيل</th>
                 <th>المدينة</th>
                 <th>العنوان</th>
                 <th>الهاتف</th>
-                <th>الحد الأقصى للأجهزة</th>
-                <th>الأجهزة المسجلة</th>
+                <th>الأجهزة</th>
                 <th>الحالة</th>
                 <th>الإجراءات</th>
               </tr>
@@ -278,18 +309,29 @@ export default function ShopsPage() {
                 <tr key={s.id}>
                   <td>{i + 1}</td>
                   <td><strong>{s.name}</strong></td>
+                  <td>
+                    <span className="device-id" style={{ direction: "ltr", display: "inline-block", fontFamily: "monospace", fontWeight: 700 }}>
+                      {s.shopCode || "—"}
+                    </span>
+                    {s.shopCode && (
+                      <button className="btn-edit" style={{ marginRight: 8 }} onClick={() => navigator.clipboard.writeText(s.shopCode)}>نسخ</button>
+                    )}
+                  </td>
                   <td>{s.city || "—"}</td>
                   <td>{s.address || "—"}</td>
                   <td>{s.phone}</td>
-                  <td style={{ textAlign: "center" }}>{s.maxDevices}</td>
-                  <td style={{ textAlign: "center" }}>{s.deviceCount || 0}</td>
+                  <td style={{ textAlign: "center" }}>
+                    <button className="btn-edit" onClick={() => openShopDevices(s)}>
+                      {s.deviceCount || 0} / {s.maxDevices}
+                    </button>
+                  </td>
                   <td><span className={`badge ${s.isActive ? "badge-active" : "badge-inactive"}`}>{s.isActive ? "نشط" : "موقوف"}</span></td>
                   <td>
                     <div className="action-btns">
                       <button className="btn-edit" onClick={() => openEdit(s)}>تعديل</button>
                       <button className={`btn-toggle ${s.isActive ? "btn-toggle-off" : ""}`} onClick={() => toggleActive(s)}>{s.isActive ? "إيقاف" : "تفعيل"}</button>
                       <button className="btn-del" onClick={() => deleteShop(s.id)}>حذف</button>
-                      <button className="btn-pairing" onClick={() => getPairingCode(s)}>كود ربط</button>
+                      <button className="btn-pairing" onClick={() => showActivationCode(s)}>كود التفعيل</button>
                     </div>
                   </td>
                 </tr>
@@ -302,67 +344,85 @@ export default function ShopsPage() {
         {showModal && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal-box" onClick={e => e.stopPropagation()}>
-              <div className="modal-title">{editShop ? "✏️ تعديل المحل" : "➕ إضافة محل جديد"}</div>
+              <div className="modal-title">{editShop ? "✏️ تعديل المحل" : justCreated ? "✓ تم إنشاء المحل" : "➕ إضافة محل جديد"}</div>
 
               {msg && <div className={`msg msg-${msg.type}`}>{msg.text}</div>}
 
               <div className="modal-section">
                 <div className="modal-section-title">🏪 بيانات المحل</div>
-                <div className="modal-row">
-                  <div className="modal-field">
+                <div className="modal-field">
                     <label>اسم المحل *</label>
-                    <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder=""/>
-                  </div>
+                    <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="جيل القطع" disabled={justCreated}/>
+                </div>
+                <div className="modal-row">
                   <div className="modal-field">
                     <label>المدينة *</label>
-                    <input value={form.city} onChange={e => setForm({...form, city: e.target.value})} placeholder=""/>
+                    <input value={form.city} onChange={e => setForm({...form, city: e.target.value})} placeholder="" disabled={justCreated}/>
+                  </div>
+                  <div className="modal-field">
+                    <label>الهاتف *</label>
+                    <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="" disabled={justCreated}/>
                   </div>
                 </div>
                 <div className="modal-row">
                   <div className="modal-field">
-                    <label>الهاتف *</label>
-                    <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder=""/>
+                    <label>هاتف إضافي</label>
+                    <input value={form.phone2} onChange={e => setForm({...form, phone2: e.target.value})} placeholder="" disabled={justCreated}/>
                   </div>
                   <div className="modal-field">
-                    <label>هاتف إضافي</label>
-                    <input value={form.phone2} onChange={e => setForm({...form, phone2: e.target.value})} placeholder=""/>
+                    <label>البريد الإلكتروني</label>
+                    <input value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="" disabled={justCreated}/>
                   </div>
-                </div>
-                <div className="modal-field">
-                  <label>البريد الإلكتروني</label>
-                  <input value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder=""/>
                 </div>
                 <div className="modal-field">
                   <label>العنوان</label>
-                  <input value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder=""/>
+                  <input value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="" disabled={justCreated}/>
                 </div>
                 <div className="modal-field">
                   <label>الموقع (رابط)</label>
-                  <input value={form.location} onChange={e => setForm({...form, location: e.target.value})} placeholder=""/>
-                </div>
-                <div className="modal-field">
-                  <label>الحد الأقصى للأجهزة</label>
-                  <input type="number" min="1" value={form.maxDevices} onChange={e => setForm({...form, maxDevices: parseInt(e.target.value) || 1})} placeholder=""/>
+                  <input value={form.location} onChange={e => setForm({...form, location: e.target.value})} placeholder="" disabled={justCreated}/>
                 </div>
               </div>
 
               <div className="modal-section">
-                <div className="modal-section-title">🔐 بيانات تسجيل الدخول</div>
+                <div className="modal-section-title">💻 عدد الأجهزة المسموح بها</div>
                 <div className="modal-field">
-                  <label>اسم المستخدم {!editShop ? "*" : "(اتركه فارغاً للإبقاء على القديم)"}</label>
-                  <input value={form.username} onChange={e => setForm({...form, username: e.target.value})} placeholder="shop_riyadh"/>
-                </div>
-                <div className="modal-field">
-                  <label>كلمة المرور {!editShop ? "*" : "(اتركها فارغة للإبقاء على القديمة)"}</label>
-                  <input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} placeholder="أدخل كلمة مرور قوية"/>
+                  <label>حد الأجهزة لهذا المحل *</label>
+                  <input type="number" min="1" max="100" value={form.maxDevices} onChange={e => setForm({...form, maxDevices: parseInt(e.target.value) || 0})} placeholder="5" disabled={justCreated}/>
+                  <div className="modal-hint" style={{ fontSize: "0.8rem", color: "#64748b", marginTop: 6 }}>
+                    كود التفعيل بعد الإنشاء يعمل لهذا المحل فقط، حتى هذا العدد. حذف جهاز من الإدارة يفتح خانة جديدة.
+                  </div>
                 </div>
               </div>
 
+              <div className="modal-section">
+                <div className="modal-section-title">🔑 كود التفعيل — مربوط بهذا المحل فقط</div>
+                {(editShop || justCreated) && form.shopCode ? (
+                  <div className="modal-field">
+                    <label>يُفعَّل به أجهزة هذا المحل حتى حد {form.maxDevices} أجهزة</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input value={form.shopCode} readOnly style={{ direction: "ltr", textAlign: "left", fontFamily: "monospace", fontWeight: 700, letterSpacing: 1 }} />
+                      <button type="button" className="btn-copy" onClick={() => navigator.clipboard.writeText(form.shopCode)}>نسخ</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="modal-hint" style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                    يُنشأ كود التفعيل تلقائياً بعد إضافة المحل، ويكون خاصاً بهذا المحل (مثال: BAA-8472).
+                  </div>
+                )}
+              </div>
+
               <div className="modal-actions">
-                <button className="btn-save" onClick={save} disabled={saving}>
-                  {saving ? "جاري الحفظ..." : editShop ? "حفظ التعديلات" : "إضافة المحل"}
-                </button>
-                <button className="btn-cancel" onClick={() => setShowModal(false)}>إلغاء</button>
+                {justCreated ? (
+                  <button className="btn-save" onClick={() => setShowModal(false)}>تم</button>
+                ) : (
+                  <>
+                    <button className="btn-save" onClick={save} disabled={saving}>
+                      {saving ? "جاري الحفظ..." : editShop ? "حفظ التعديلات" : "إضافة المحل"}
+                    </button>
+                    <button className="btn-cancel" onClick={() => setShowModal(false)}>إلغاء</button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -370,25 +430,65 @@ export default function ShopsPage() {
 
         {pairingModal && (
           <div className="modal-overlay" onClick={() => setPairingModal(null)}>
-            <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
-              <div className="modal-title">🔗 كود ربط — {pairingModal.shop.name}</div>
-
-              {pairingModal.loading && <div className="pairing-loading">جاري إنشاء الكود...</div>}
-
-              {pairingModal.error && (
-                <div className="msg msg-error">{pairingModal.error}</div>
-              )}
-
-              {pairingModal.code && (
+            <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 420 }}>
+              <div className="modal-title">🔑 كود التفعيل — {pairingModal.shop.name}</div>
+              {pairingModal.code ? (
                 <>
                   <div className="pairing-code">{pairingModal.code}</div>
-                  <div className="pairing-expiry">صالح حتى {formatExpiry(pairingModal.expiresAt!)}</div>
+                  <div className="pairing-expiry">
+                    مربوط بالمحل «{pairingModal.shop.name}» فقط. لا يعمل لأي محل آخر.
+                    <br />
+                    الأجهزة: {pairingModal.used ?? pairingModal.shop.deviceCount ?? 0} / {pairingModal.max ?? pairingModal.shop.maxDevices}
+                  </div>
                   <button className="btn-copy" onClick={copyCode}>{copied ? "✓ تم النسخ" : "📋 نسخ الكود"}</button>
                 </>
+              ) : (
+                <div className="msg msg-error">لا يوجد كود تفعيل لهذا المحل</div>
               )}
-
               <div className="modal-actions" style={{ marginTop: 14 }}>
                 <button className="btn-cancel" style={{ width: "100%" }} onClick={() => setPairingModal(null)}>إغلاق</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {devicesModal && (
+          <div className="modal-overlay" onClick={() => setDevicesModal(null)}>
+            <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 640 }}>
+              <div className="modal-title">💻 أجهزة {devicesModal.shop.name}</div>
+              <div className="pairing-expiry" style={{ textAlign: "right" }}>
+                المسجّل {devicesModal.devices.length} / الحد {devicesModal.shop.maxDevices}. حذف جهاز يحرّر خانة تفعيل.
+              </div>
+              {devicesModal.loading ? (
+                <div className="pairing-loading">جاري التحميل...</div>
+              ) : devicesModal.devices.length === 0 ? (
+                <div className="empty-state"><div>لا توجد أجهزة مسجّلة بعد</div></div>
+              ) : (
+                <table className="shops-table">
+                  <thead>
+                    <tr>
+                      <th>Device ID</th>
+                      <th>User Name</th>
+                      <th>الحالة</th>
+                      <th>آخر ظهور</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {devicesModal.devices.map((d: any) => (
+                      <tr key={d.id}>
+                        <td><span className="device-id" style={{ fontFamily: "monospace", fontWeight: 700 }}>{d.deviceId}</span></td>
+                        <td style={{ direction: "ltr", textAlign: "left", fontFamily: "monospace", fontWeight: 700 }}>{d.name || "—"}</td>
+                        <td>{d.isOnline ? "متصل" : "غير متصل"}</td>
+                        <td>{d.lastSeen ? new Date(d.lastSeen).toLocaleString("ar") : "—"}</td>
+                        <td><button className="btn-del" onClick={() => deleteShopDevice(d.id)}>حذف</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <div className="modal-actions" style={{ marginTop: 14 }}>
+                <button className="btn-cancel" style={{ width: "100%" }} onClick={() => setDevicesModal(null)}>إغلاق</button>
               </div>
             </div>
           </div>
