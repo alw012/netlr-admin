@@ -199,6 +199,7 @@ export default function AdminPage() {
           </div>
 
           <div className="netlr-content">
+            <div key={page} className="nl-page-enter">
             {page === "dashboard" && (
               <>
                 <div className="netlr-hero">
@@ -242,6 +243,7 @@ export default function AdminPage() {
             {page === "devices"  && <DevicesPage />}
             {page === "parts"    && <PartsPage />}
             {page === "matching" && <MatchingGroupsPage />}
+            </div>
           </div>
           <div className="netlr-page-footer">NetLR · {today}</div>
         </main>
